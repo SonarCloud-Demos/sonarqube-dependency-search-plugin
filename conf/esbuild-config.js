@@ -1,0 +1,66 @@
+const TARGET_BROWSERS = ['chrome58', 'firefox57', 'safari11', 'edge18'];
+
+module.exports = (release) => ({
+  entryPoints: [
+    { in: './src/main/ts/search.tsx', out: 'search' },
+    { in: './src/main/ts/global.tsx', out: 'global' },
+    { in: './src/main/ts/admin.tsx', out: 'admin' },
+  ],
+  outdir: 'target/classes/static',
+  tsconfig: './tsconfig.json',
+  define: {
+    'process.cwd': 'dummy_process_cwd',
+  },
+  bundle: true,
+  minify: release,
+  sourcemap: !release,
+  target: TARGET_BROWSERS,
+  plugins: [
+    importAsGlobals({
+      react: 'React',
+      'react-dom': 'ReactDOM',
+      'sonar-request': 'SonarRequest',
+      i18n: 'window',
+      'sonar-config': 'window'
+    }),
+  ],
+});
+
+// See https://github.com/evanw/esbuild/issues/337
+function importAsGlobals(mapping) {
+  const escRe = (s) => s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+  const filter = new RegExp(
+    Object.keys(mapping)
+      .map((moduleName) => `^${escRe(moduleName)}$`)
+      .join('|')
+  );
+
+  return {
+    name: 'import-as-globals',
+    setup(build) {
+      build.onResolve({ filter }, (args) => {
+        if (!mapping[args.path]) {
+          throw new Error('Unknown global: ' + args.path);
+        }
+        return {
+          path: args.path,
+          namespace: 'external-global',
+        };
+      });
+
+      build.onLoad(
+        {
+          filter,
+          namespace: 'external-global',
+        },
+        (args) => {
+          const globalName = mapping[args.path];
+          return {
+            contents: `module.exports = ${globalName};`,
+            loader: 'js',
+          };
+        }
+      );
+    },
+  };
+}

@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.sonarsource.parent</groupId>
+    <artifactId>parent</artifactId>
+    <version>83.0.0.2369</version>
+  </parent>
+
+  <groupId>org.sonarsource.plugins.dependencysearch</groupId>
+  <artifactId>sonar-dependency-search-plugin</artifactId>
+  <packaging>sonar-plugin</packaging>
+  <version>0.1.0</version>
+
+  <name>SonarQube Dependency Search Plugin</name>
+  <description>Search the estate for a package name/version, vulnerability ID (including aliases), or license — see MMF-5549</description>
+
+  <inceptionYear>2026</inceptionYear>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <sonar.apiVersion>11.1.0.2693</sonar.apiVersion>
+    <sonarqube.version>10.1.0.73491</sonarqube.version>
+    <jdk.min.version>11</jdk.min.version>
+    <sonar.sources>src/main/java,src/main/ts</sonar.sources>
+    <sonar.javascript.lcov.reportPaths>./coverage/lcov.info</sonar.javascript.lcov.reportPaths>
+    <sonar.coverage.exclusions>src/main/ts/**/__tests__/**</sonar.coverage.exclusions>
+    <orchestrator.version>4.1.0.495</orchestrator.version>
+    <skipFrontendTests>false</skipFrontendTests>
+    <sonar.sca.exclusions>sonar-enterprise/**,sonarqube-webapp/**,sonar-cayc-stats-plugin/**,sonar-golc/**</sonar.sca.exclusions>
+
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.sonarsource.api.plugin</groupId>
+      <artifactId>sonar-plugin-api</artifactId>
+      <version>${sonar.apiVersion}</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- integration tests -->
+    <dependency>
+      <groupId>org.sonarsource.sonarqube</groupId>
+      <artifactId>sonar-ws</artifactId>
+      <version>${sonarqube.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- unit tests -->
+    <dependency>
+      <groupId>org.sonarsource.sonarqube</groupId>
+      <artifactId>sonar-testing-harness</artifactId>
+      <version>${sonarqube.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>4.13.2</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <version>5.1.1</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <version>3.24.2</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.sonarsource.orchestrator</groupId>
+      <artifactId>sonar-orchestrator</artifactId>
+      <version>${orchestrator.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.sonarsource.orchestrator</groupId>
+      <artifactId>sonar-orchestrator-junit4</artifactId>
+      <version>${orchestrator.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.5.1</version>
+      <scope>test</scope>
+    </dependency>
+
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.sonarsource.sonar-packaging-maven-plugin</groupId>
+        <artifactId>sonar-packaging-maven-plugin</artifactId>
+        <version>1.25.1.3002</version>
+        <extensions>true</extensions>
+        <configuration>
+          <pluginKey>dependencysearch</pluginKey>
+          <pluginName>Dependency Search</pluginName>
+          <pluginDescription>Search the estate for a package name/version, vulnerability ID (including aliases), or license</pluginDescription>
+          <pluginClass>org.sonar.plugin.dependency.search.DependencySearchPlugin</pluginClass>
+          <pluginApiMinVersion>11.1.0.2693</pluginApiMinVersion>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.10.1</version>
+        <configuration>
+          <release>11</release>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.sonarsource.scanner.maven</groupId>
+        <artifactId>sonar-maven-plugin</artifactId>
+        <version>5.5.0.6356</version>
+      </plugin>
+      <plugin>
+        <groupId>com.mycila</groupId>
+        <artifactId>license-maven-plugin</artifactId>
+        <configuration>
+          <skip>true</skip>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-source-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>attach-sources</id>
+            <phase>none</phase>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>com.github.eirslett</groupId>
+        <artifactId>frontend-maven-plugin</artifactId>
+        <version>1.9.1</version>
+        <executions>
+          <execution>
+            <phase>generate-resources</phase>
+            <id>install node and yarn</id>
+            <goals>
+              <goal>install-node-and-yarn</goal>
+            </goals>
+            <configuration>
+              <nodeVersion>v16.14.0</nodeVersion>
+              <yarnVersion>v1.22.5</yarnVersion>
+            </configuration>
+          </execution>
+          <execution>
+            <id>yarn install</id>
+            <goals>
+              <goal>yarn</goal>
+            </goals>
+            <configuration>
+              <skip>true</skip>
+            </configuration>
+          </execution>
+          <execution>
+            <phase>generate-resources</phase>
+            <id>yarn run script</id>
+            <goals>
+              <goal>yarn</goal>
+            </goals>
+            <configuration>
+              <skip>true</skip>
+            </configuration>
+          </execution>
+          <execution>
+            <phase>test</phase>
+            <id>yarn run tests</id>
+            <goals>
+              <goal>yarn</goal>
+            </goals>
+            <configuration>
+              <skip>true</skip>
+              <arguments>test --coverage</arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>node</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>scripts/build.js</argument>
+              </arguments>
+              <environmentVariables>
+                <NODE_EXTRA_CA_CERTS>${env.NODE_EXTRA_CA_CERTS}</NODE_EXTRA_CA_CERTS>
+              </environmentVariables>
+            </configuration>
+          </execution>
+          <execution>
+            <phase>test</phase>
+            <id>npm test</id>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <skip>${skipFrontendTests}</skip>
+              <executable>npm</executable>
+              <workingDirectory>${project.basedir}</workingDirectory>
+              <arguments>
+                <argument>test</argument>
+                <argument>--coverage</argument>
+              </arguments>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <version>3.2.0</version>
+        <executions>
+          <execution>
+            <id>add-test-source</id>
+            <phase>generate-test-sources</phase>
+            <goals>
+              <goal>add-test-source</goal>
+            </goals>
+            <configuration>
+              <sources>
+                <source>src/bbt/java</source>
+              </sources>
+            </configuration>
+          </execution>
+          <execution>
+            <id>add-test-resources</id>
+            <phase>generate-test-resources</phase>
+            <goals>
+              <goal>add-test-resource</goal>
+            </goals>
+            <configuration>
+              <resources>
+                <resource>
+                  <directory>src/bbt/resources</directory>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <profile>
+        <id>black-box-tests</id>
+        <properties>
+            <skipFrontendTests>true</skipFrontendTests>
+        </properties>
+        <build>
+            <plugins>
+              <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration>
+                        <skip>true</skip>
+                    </configuration>
+                </plugin>
+              <plugin>
+                  <groupId>org.apache.maven.plugins</groupId>
+                  <artifactId>maven-failsafe-plugin</artifactId>
+                  <executions>
+                      <execution>
+                          <id>run-black-box-tests</id>
+                          <goals>
+                              <goal>integration-test</goal>
+                              <goal>verify</goal>
+                          </goals>
+                          <configuration>
+                            <includes>
+                                  <include>**/*BBT.java</include>
+                            </includes>
+                          </configuration>
+                      </execution>
+                  </executions>
+              </plugin>
+            </plugins>
+        </build>
+    </profile>
+</profiles>
+
+
+</project>
