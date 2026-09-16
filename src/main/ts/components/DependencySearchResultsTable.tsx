@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ColumnFilters, SortDir, SortField, TaggedRelease, packageManagerOf, packageNameOf, releaseDetailUrl } from '../types/dependency';
 import { Badge, TableLink, thBase, sortBtn, sortArrow, colInput } from './shared/tableUtils';
 
@@ -147,6 +148,45 @@ interface FacetDropdownProps {
 
 function FacetDropdown({ label, values, selected, onChange }: Readonly<FacetDropdownProps>) {
   const sorted = useMemo(() => [...values.entries()].sort((a, b) => a[0].localeCompare(b[0])), [values]);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const summaryRef = useRef<HTMLElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+
+  function measure() {
+    const rect = summaryRef.current?.getBoundingClientRect();
+    if (rect) setPos({ top: rect.bottom + 4, left: rect.left });
+  }
+
+  // Native <details>/<summary> gives us open/close for free, but the panel itself
+  // has to escape via a portal (below) rather than plain CSS position — an
+  // absolutely-positioned descendant is still clipped by any ancestor with
+  // overflow:hidden/auto no matter its z-index, since clipping is based on DOM
+  // containment, not paint order. This table sits inside exactly two such
+  // ancestors (the rounded-corner wrapper, and the header's own horizontal-scroll
+  // region), so the panel rendered as a normal child was getting cut off/painted
+  // underneath adjacent columns instead of floating above them.
+  useEffect(() => {
+    const el = detailsRef.current;
+    if (!el) return;
+    function handleToggle() {
+      const open = el.open;
+      setIsOpen(open);
+      if (open) measure();
+    }
+    el.addEventListener('toggle', handleToggle);
+    return () => el.removeEventListener('toggle', handleToggle);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    window.addEventListener('scroll', measure, true);
+    window.addEventListener('resize', measure);
+    return () => {
+      window.removeEventListener('scroll', measure, true);
+      window.removeEventListener('resize', measure);
+    };
+  }, [isOpen]);
 
   function toggle(v: string) {
     const next = new Set(selected);
@@ -155,13 +195,14 @@ function FacetDropdown({ label, values, selected, onChange }: Readonly<FacetDrop
   }
 
   return (
-    <details style={{ marginTop: '4px' }}>
-      <summary style={{ fontSize: '11px', color: '#333', cursor: 'pointer', listStyle: 'none' }}>
+    <details ref={detailsRef} style={{ marginTop: '4px' }}>
+      <summary ref={summaryRef} style={{ fontSize: '11px', color: '#333', cursor: 'pointer', listStyle: 'none' }}>
         {selected.size > 0 ? `${selected.size} selected` : 'any'} ▾
       </summary>
-      <div style={{ position: 'relative' }}>
+      {isOpen && pos && createPortal(
         <div style={{
-          position: 'absolute', zIndex: 10, top: '2px', left: 0, minWidth: '160px', maxHeight: '220px', overflowY: 'auto',
+          position: 'fixed', zIndex: 1000, top: `${pos.top}px`, left: `${pos.left}px`,
+          minWidth: '160px', maxHeight: '220px', overflowY: 'auto',
           background: '#fff', border: '1px solid #ccc', borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', padding: '4px 0',
         }}>
           {selected.size > 0 && (
@@ -179,8 +220,9 @@ function FacetDropdown({ label, values, selected, onChange }: Readonly<FacetDrop
               <span style={{ color: '#999', marginLeft: 'auto' }}>{count}</span>
             </label>
           ))}
-        </div>
-      </div>
+        </div>,
+        document.body
+      )}
     </details>
   );
 }

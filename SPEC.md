@@ -255,10 +255,19 @@ of distinct values, no realistic alternative), but is bad UX for something like 
     feature was trying to avoid; free-text autocomplete stays on the static list instead.
   - A value the user has already checked stays visible (at count 0) even if other filters just
     narrowed it out, rather than a checked box silently disappearing from the list.
-- A column becomes a **checkbox picker** (`FacetDropdown`, a native `<details>/<summary>` —
-  zero JS needed for open/close/click-outside) when its distinct-value count (from the full,
-  static pass) is below `filterDropdownThreshold` (admin-configurable, default 12). Selections
-  are OR'd within the column, AND'd across columns like every other filter.
+- A column becomes a **checkbox picker** (`FacetDropdown`, a native `<details>/<summary>` for
+  open/close — no click-outside-to-close handling, matching plain `<details>` semantics) when
+  its distinct-value count (from the full, static pass) is below `filterDropdownThreshold`
+  (admin-configurable, default 12). Selections are OR'd within the column, AND'd across columns
+  like every other filter.
+  - **The panel itself renders through a portal to `document.body`**, positioned in `fixed`
+    coordinates from the `<summary>`'s live `getBoundingClientRect()` (re-measured on scroll/
+    resize while open). Rendering it as a normal in-place child — even `position: absolute`
+    with a high `z-index` — doesn't work here: the table sits inside two ancestors that clip
+    overflow (the rounded-corner wrapper, `overflow: hidden`, and the header's own horizontal-
+    scroll region, `overflowX: auto`), and CSS overflow clipping is based on DOM containment,
+    not paint order — no `z-index` escapes a clipping ancestor. First version got this wrong:
+    the panel rendered clipped/behind the row content instead of floating above it.
 - At or above the threshold, the column stays a plain text input with a `<datalist>` of up to
   500 of its distinct values (from the static pass) for browser-native autocomplete — no extra
   library, no custom typeahead component, and not re-narrowed (see above).
