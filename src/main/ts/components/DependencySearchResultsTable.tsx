@@ -3,6 +3,25 @@ import { ColumnFilters, SortDir, SortField, TaggedRelease, packageManagerOf, pac
 import { Badge, TableLink, thBase, sortBtn, sortArrow, colInput } from './shared/tableUtils';
 
 const FILTER_DEBOUNCE_MS = 120;
+// Facets (distinct-value counts per column) are a background enhancement, not
+// something the filter needs to function — computing them is a full pass over
+// `items` (up to ~300k rows), so it's debounced longer than the filter inputs
+// themselves and skipped entirely while data is still streaming in rapidly.
+const FACET_DEBOUNCE_MS = 300;
+
+// Encodes a set of exact-match selections into the same string slot the free-text
+// filter uses, so ColumnFilters doesn't need a second shape.  (ASCII unit
+// separator) is the join delimiter — control character, essentially never appears
+// in a real package name/version/license/project name, unlike a comma.
+const MULTISELECT_DELIMITER = '\u001F';
+
+function encodeSelection(values: Set<string>): string {
+  return [...values].join(MULTISELECT_DELIMITER);
+}
+
+function decodeSelection(raw: string): Set<string> {
+  return raw ? new Set(raw.split(MULTISELECT_DELIMITER)) : new Set();
+}
 
 interface DependencySearchResultsTableProps {
   items: TaggedRelease[];
@@ -22,6 +41,10 @@ interface DependencySearchResultsTableProps {
   // How many (filtered/sorted) rows the table pages through at once — an admin-
   // configurable UX setting, unrelated to the network fetch page size.
   pageSize: number;
+  // Below this many distinct values, a column's filter becomes a checkbox picker of
+  // the actual values instead of free text; at/above it, free text stays but gets
+  // autocomplete suggestions via a <datalist>. Admin-configurable.
+  filterDropdownThreshold: number;
 }
 
 const PM_COLORS: Record<string, string> = {
@@ -53,6 +76,25 @@ function fieldValue(item: TaggedRelease, field: SortField): string {
     case 'scopeSummary': return item.scopeSummary ?? '';
     default: return '';
   }
+}
+
+const ALL_FIELDS: SortField[] = [
+  'projectName', 'scopeLabels', 'packageName', 'version', 'packageManager', 'licenseExpression', 'scopeSummary',
+];
+
+/** One full pass over `items`, building a value→count map per column at once —
+ * cheaper than a separate pass per column. */
+function computeFacets(items: TaggedRelease[]): Record<SortField, Map<string, number>> {
+  const facets: Record<string, Map<string, number>> = {};
+  for (const field of ALL_FIELDS) facets[field] = new Map();
+  for (const item of items) {
+    for (const field of ALL_FIELDS) {
+      const v = fieldValue(item, field);
+      const map = facets[field];
+      map.set(v, (map.get(v) ?? 0) + 1);
+    }
+  }
+  return facets as Record<SortField, Map<string, number>>;
 }
 
 interface ColumnDef {
@@ -93,16 +135,72 @@ function renderCell(item: TaggedRelease, field: SortField): React.ReactNode {
   }
 }
 
+interface FacetDropdownProps {
+  label: string;
+  values: Map<string, number>;
+  selected: Set<string>;
+  onChange: (next: Set<string>) => void;
+}
+
+function FacetDropdown({ label, values, selected, onChange }: Readonly<FacetDropdownProps>) {
+  const sorted = useMemo(() => [...values.entries()].sort((a, b) => a[0].localeCompare(b[0])), [values]);
+
+  function toggle(v: string) {
+    const next = new Set(selected);
+    if (next.has(v)) next.delete(v); else next.add(v);
+    onChange(next);
+  }
+
+  return (
+    <details style={{ marginTop: '4px' }}>
+      <summary style={{ fontSize: '11px', color: '#333', cursor: 'pointer', listStyle: 'none' }}>
+        {selected.size > 0 ? `${selected.size} selected` : 'any'} ▾
+      </summary>
+      <div style={{ position: 'relative' }}>
+        <div style={{
+          position: 'absolute', zIndex: 10, top: '2px', left: 0, minWidth: '160px', maxHeight: '220px', overflowY: 'auto',
+          background: '#fff', border: '1px solid #ccc', borderRadius: '4px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)', padding: '4px 0',
+        }}>
+          {selected.size > 0 && (
+            <button
+              onClick={() => onChange(new Set())}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '4px 10px', fontSize: '11px', color: '#2563eb', background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              Clear
+            </button>
+          )}
+          {sorted.map(([v, count]) => (
+            <label key={v || '(empty)'} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 10px', fontSize: '12px', fontWeight: 400, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              <input type="checkbox" checked={selected.has(v)} onChange={() => toggle(v)} aria-label={`${label}: ${v || '(empty)'}`} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{v || '(empty)'}</span>
+              <span style={{ color: '#999', marginLeft: 'auto' }}>{count}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+}
+
 export function DependencySearchResultsTable({
-  items, showProjectColumn, showScopeColumn, filters, onFilterChange, sortBy, sortDir, onSortChange, pageSize,
+  items, showProjectColumn, showScopeColumn, filters, onFilterChange, sortBy, sortDir, onSortChange, pageSize, filterDropdownThreshold,
 }: Readonly<DependencySearchResultsTableProps>) {
   const [debouncedFilters, setDebouncedFilters] = useState<ColumnFilters>(filters);
   const [currentPage, setCurrentPage] = useState(0);
+  const [facets, setFacets] = useState<Record<SortField, Map<string, number>> | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedFilters(filters), FILTER_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [filters]);
+
+  // Static faceting: computed once (debounced) from the full unfiltered `items`, not
+  // recomputed as other columns' filters change. Cheaper, and avoids counts shifting
+  // confusingly while someone's mid-selection on another column.
+  useEffect(() => {
+    const t = setTimeout(() => setFacets(computeFacets(items)), FACET_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [items]);
 
   // Back to page 1 when the filter/sort criteria change — not when `items` merely
   // grows (streaming in more pages shouldn't kick the user off whatever page they're
@@ -112,20 +210,30 @@ export function DependencySearchResultsTable({
     setCurrentPage(0);
   }, [debouncedFilters, sortBy, sortDir]);
 
+  function isFacetField(field: SortField): boolean {
+    const count = facets?.[field]?.size;
+    return count !== undefined && count > 0 && count < filterDropdownThreshold;
+  }
+
   const filteredAndSorted = useMemo(() => {
     const activeFilters = (Object.entries(debouncedFilters) as Array<[SortField, string]>)
-      .filter(([, v]) => v.trim() !== '')
-      .map(([field, v]) => [field, v.trim().toLowerCase()] as const);
+      .filter(([, v]) => v.trim() !== '');
 
     const rows = activeFilters.length === 0
       ? items
-      : items.filter((item) => activeFilters.every(([field, v]) => fieldValue(item, field).toLowerCase().includes(v)));
+      : items.filter((item) => activeFilters.every(([field, raw]) => {
+        if (isFacetField(field)) {
+          return decodeSelection(raw).has(fieldValue(item, field));
+        }
+        return fieldValue(item, field).toLowerCase().includes(raw.trim().toLowerCase());
+      }));
 
     return [...rows].sort((a, b) => {
       const cmp = fieldValue(a, sortBy).localeCompare(fieldValue(b, sortBy));
       return sortDir === 'asc' ? cmp : -cmp;
     });
-  }, [items, debouncedFilters, sortBy, sortDir]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isFacetField reads `facets`, already a dep
+  }, [items, debouncedFilters, sortBy, sortDir, facets, filterDropdownThreshold]);
 
   const totalPages = Math.max(1, Math.ceil(filteredAndSorted.length / pageSize));
   const safePage = Math.min(currentPage, totalPages - 1);
@@ -157,21 +265,47 @@ export function DependencySearchResultsTable({
     );
   }
 
+  function headerControl(field: SortField, label: string) {
+    if (isFacetField(field)) {
+      return (
+        <FacetDropdown
+          label={label}
+          values={facets![field]}
+          selected={decodeSelection(filters[field])}
+          onChange={(next) => onFilterChange(field, encodeSelection(next))}
+        />
+      );
+    }
+    const datalistId = `dependencysearch-${field}-options`;
+    const facetValues = facets?.[field];
+    return (
+      <>
+        <input
+          type="text"
+          list={facetValues ? datalistId : undefined}
+          placeholder="filter…"
+          value={filters[field]}
+          onChange={(e) => onFilterChange(field, e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          style={colInput}
+          aria-label={`Filter by ${label}`}
+        />
+        {facetValues && (
+          <datalist id={datalistId}>
+            {[...facetValues.keys()].filter(Boolean).slice(0, 500).map((v) => <option value={v} key={v} />)}
+          </datalist>
+        )}
+      </>
+    );
+  }
+
   return (
     <div style={{ marginTop: '8px', border: '1px solid #e0e0e0', borderRadius: '4px', overflow: 'hidden' }}>
       <div style={{ display: 'grid', gridTemplateColumns, background: '#f3f4f4', borderBottom: '1px solid #e0e0e0', overflowX: 'auto' }}>
         {columns.map((col) => (
           <div key={col.field} style={{ ...thBase, background: 'transparent', borderBottom: 'none' }}>
             <button style={sortBtn} onClick={() => onSortChange(col.field)}>{col.label}{sortArrow(col.field, sortBy, sortDir)}</button>
-            <input
-              type="text"
-              placeholder="filter…"
-              value={filters[col.field]}
-              onChange={(e) => onFilterChange(col.field, e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-              style={colInput}
-              aria-label={`Filter by ${col.label}`}
-            />
+            {headerControl(col.field, col.label)}
           </div>
         ))}
       </div>

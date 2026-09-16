@@ -31,6 +31,10 @@ public class DependencySearchPlugin implements Plugin {
    * Unrelated to the network fetch page size, which is a fixed constant (the
    * server's hard cap of 500) and not configurable. */
   public static final String RESULTS_PAGE_SIZE_KEY = "dependencysearch.pageSize";
+  /** Below this many distinct values, a column's filter renders as a checkbox
+   * picker instead of free text — cheap enough to compute client-side that it
+   * doesn't need its own throttle, just a sane default. */
+  public static final String FILTER_DROPDOWN_THRESHOLD_KEY = "dependencysearch.filterDropdownThreshold";
   private static final String CATEGORY = "Dependency Search";
 
   @Override
@@ -61,6 +65,15 @@ public class DependencySearchPlugin implements Plugin {
         .name("Results page size")
         .description("Rows the results table pages through at once — a display setting only, unrelated to how many dependencies are fetched per network request (that's a fixed constant at the server's hard cap). Editable from Administration → Dependency Search.")
         .defaultValue("1000")
+        .type(PropertyType.INTEGER)
+        .category(CATEGORY)
+        .build()
+    );
+    context.addExtension(
+      PropertyDefinition.builder(FILTER_DROPDOWN_THRESHOLD_KEY)
+        .name("Filter dropdown threshold")
+        .description("Below this many distinct values, a column's filter shows a checkbox picker of the actual values instead of free text; at or above it, free text with autocomplete suggestions. Editable from Administration → Dependency Search.")
+        .defaultValue("12")
         .type(PropertyType.INTEGER)
         .category(CATEGORY)
         .build()

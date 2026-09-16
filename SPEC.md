@@ -34,11 +34,16 @@ only works if an all-projects portfolio already exists.
   native tab, it doesn't wait for the whole inventory before showing something: each fetched page
   streams into the table immediately.
 - **Per-column filter + sort** — every column (Project, Branch/PR, Package, Version, Manager,
-  License, Scope) has its own sort-arrow button and filter input in the header, AND-combined,
+  License, Scope) has its own sort-arrow button and filter control in the header, AND-combined,
   filtering that already-fetched list in-memory; no network call per keystroke. Filter/sort state
   lives in the panel, not the table, so it survives the table being briefly unmounted while scopes
   re-resolve (e.g. toggling "all branches") — typing something in doesn't get reset by an
   unrelated loading flicker.
+- **Low-cardinality columns get a checkbox picker instead of free text** — below
+  `filterDropdownThreshold` distinct values (admin-configurable, default 12; typically Manager,
+  Scope, sometimes License), the filter is a value+count checklist rather than a text box.
+  Above the threshold (Package, Version, Project, ...), it stays free text but gets `<datalist>`-
+  backed autocomplete suggestions. See "Faceting" below for how this stays cheap at 300k rows.
 - **"All branches & pull requests" toggle** (optional, off by default) re-resolves the scope to
   every branch and PR instead of just the targeted one, and deduplicates rows for the same
   project + package + version + license found on more than one branch/PR (their branch/PR labels
@@ -94,6 +99,10 @@ only works if an all-projects portfolio already exists.
       virtualized with `@tanstack/react-virtual`; dropped once pagination existed, since
       virtualizing a box sized to show every row of a page clips nothing — see "Rendering at
       scale" below.)
+- [x] Low-cardinality column filters (below an admin-configurable threshold, default 12) render
+      as a checkbox picker of actual values with counts; higher-cardinality columns keep free
+      text but get autocomplete suggestions — both computed client-side, debounced, off the
+      already-fetched list (see "Faceting")
 - [x] Disabling the plugin actually removes the tabs/menu entries everywhere (not just a client-
       side notice) — see "Enable/disable" below for the restart caveat
 
@@ -216,6 +225,37 @@ box, no `<tr>`s (still a CSS-grid layout, not a literal `<table>`, purely so col
 declarative — nothing to do with virtualization). The page itself scrolls, the way any long page
 does. The 300k-entry scale is handled by keeping `resultsPageSize` reasonable, the same way it
 was already handled for the *fetch* side by `FETCH_PAGE_SIZE`.
+
+### Faceting — checkbox pickers vs. free-text autocomplete
+
+Motivation: typing a substring into a plain text box works fine for Package/Version (thousands
+of distinct values, no realistic alternative), but is bad UX for something like Manager or Scope
+— a handful of exact values (`NPM`, `MAVEN`, `PYPI`, ...) where a picker beats typing.
+
+- `computeFacets` (`DependencySearchResultsTable.tsx`) makes **one pass** over `items`, building
+  a `value → count` `Map` for all 7 columns simultaneously (not 7 separate passes) — the cheapest
+  way to get every column's cardinality at once. Static: computed from the full unfiltered list,
+  not recomputed as other columns' filters change (dynamic/narrowing facets would be nicer but
+  cost more and risk confusing counts mid-selection — not done).
+- Debounced 300ms off `items` (longer than the 120ms filter debounce) — it's a background
+  enhancement, not something the filter depends on to function; skip recomputing it on every
+  single streamed page while a large fetch is still landing.
+- A column becomes a **checkbox picker** (`FacetDropdown`, a native `<details>/<summary>` —
+  zero JS needed for open/close/click-outside) when its distinct-value count is below
+  `filterDropdownThreshold` (admin-configurable, default 12). Selections are OR'd within the
+  column, AND'd across columns like every other filter.
+- At or above the threshold, the column stays a plain text input but gets a `<datalist>` of up
+  to 500 of its distinct values for browser-native autocomplete — no extra library, no custom
+  typeahead component.
+- **Encoding**: rather than giving `ColumnFilters` a second shape (string | string[]), a
+  checkbox selection is encoded into the same string slot the free-text filter already uses,
+  joined with `U+001F` (ASCII unit separator) — a control character that won't collide with any
+  real package/version/license/project name, unlike a comma. `isFacetField` (derived from the
+  live facet count, not stored state) decides at filter-time whether a column's stored string is
+  interpreted as "exact match against this decoded set" or "substring, case-insensitive."
+- Until the first facet pass completes (or if a column's cardinality never drops below the
+  threshold), every column just behaves like free-text substring filtering always did — there's
+  no broken/loading state, only a delayed upgrade to picker/autocomplete once facets are ready.
 
 ### Enable/disable
 

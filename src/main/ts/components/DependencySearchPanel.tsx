@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { DEFAULT_THROTTLE_RPS, fetchAllScaReleases } from '../api/scaReleases';
-import { DEFAULT_RESULTS_PAGE_SIZE, syncPluginSettings } from '../api/pluginSettings';
+import { DEFAULT_FILTER_DROPDOWN_THRESHOLD, DEFAULT_RESULTS_PAGE_SIZE, syncPluginSettings } from '../api/pluginSettings';
 import {
   Component,
   BranchLike,
@@ -87,6 +87,7 @@ export function DependencySearchPanel({ mode, component: fixedComponent, branchL
   const genRef = useRef(0);
   const [throttleRps, setThrottleRps] = useState(DEFAULT_THROTTLE_RPS);
   const [resultsPageSize, setResultsPageSize] = useState(DEFAULT_RESULTS_PAGE_SIZE);
+  const [filterDropdownThreshold, setFilterDropdownThreshold] = useState(DEFAULT_FILTER_DROPDOWN_THRESHOLD);
 
   // null = not checked yet (render nothing that could imply an answer either way),
   // false = administrator disabled the plugin — show a notice and make no other calls.
@@ -118,10 +119,11 @@ export function DependencySearchPanel({ mode, component: fixedComponent, branchL
   // whether the plugin is enabled at all, the throttle (reflected in the duration
   // estimate below, not a hardcoded guess), and the results table's page size.
   useEffect(() => {
-    syncPluginSettings().then(({ enabled, throttleRps: rps, resultsPageSize: size }) => {
+    syncPluginSettings().then(({ enabled, throttleRps: rps, resultsPageSize: size, filterDropdownThreshold: threshold }) => {
       setPluginEnabled(enabled);
       setThrottleRps(rps);
       setResultsPageSize(size);
+      setFilterDropdownThreshold(threshold);
     });
   }, []);
 
@@ -425,6 +427,7 @@ export function DependencySearchPanel({ mode, component: fixedComponent, branchL
               sortDir={sortDir}
               onSortChange={handleSortChange}
               pageSize={resultsPageSize}
+              filterDropdownThreshold={filterDropdownThreshold}
             />
           )}
         </>

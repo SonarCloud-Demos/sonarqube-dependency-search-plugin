@@ -28,9 +28,12 @@ a portfolio view by package name and reading version rows one by one.
   targeted branch, same as the native "Dependencies" tab. Results stream in page by page as
   they're fetched, so the table starts filling in immediately instead of waiting for everything.
 - **Per-column filter + sort** — every column (Project, Branch/PR, Package, Version, Manager,
-  License, Scope) has its own filter box and sort arrow, AND-combined, over the already-fetched
-  list. No extra request per keystroke, and the filters you've typed survive the table briefly
-  reloading (e.g. when you toggle all-branches) instead of resetting.
+  License, Scope) has its own filter control and sort arrow, AND-combined, over the already-
+  fetched list. No extra request per keystroke, and the filters you've typed survive the table
+  briefly reloading (e.g. when you toggle all-branches) instead of resetting. Columns with fewer
+  distinct values than a threshold (admin-configurable, default 12 — typically Manager, Scope)
+  get a checkbox picker with counts instead of a text box; the rest stay free text with
+  autocomplete suggestions.
 - **"Search all branches & pull requests"** (optional, off by default) — fetches every branch and
   PR instead of just the targeted one, and deduplicates rows for the same package/version/license
   found on more than one branch/PR of the same project. Reuses whatever's already loaded (e.g.
@@ -75,6 +78,7 @@ separate custom editor — the plugin's own admin page is informational only):
 | Enable Dependency Search | on | Off = no tabs/menu entries anywhere, no API calls. Removing the menus requires a SonarQube **restart**; the "no API calls" part is immediate. |
 | Request throttle (requests/sec) | 10 | Shared across every branch/PR/project a search fans out to. |
 | Results page size | 1000 | Results table pagination only — unrelated to the network fetch page size (fixed, not configurable). |
+| Filter dropdown threshold | 12 | Below this many distinct values, a column's filter is a checkbox picker; at/above it, free text with autocomplete. |
 
 ## Requirements
 
