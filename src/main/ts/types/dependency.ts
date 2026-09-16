@@ -40,7 +40,7 @@ export function scopeCacheKey(s: SearchScope): string {
   return `${s.projectKey}::${s.branchKey ?? ''}::${s.pullRequestKey ?? ''}`;
 }
 
-export type SortField = 'packageName' | 'version' | 'licenseExpression' | 'projectName' | 'scopeLabels' | 'packageManager' | 'scopeSummary';
+export type SortField = 'packageName' | 'version' | 'licenseExpression' | 'projectName' | 'scopeLabels' | 'packageManager' | 'scopeSummary' | 'directSummary';
 export type SortDir = 'asc' | 'desc';
 
 export interface ColumnFilters {
@@ -51,10 +51,11 @@ export interface ColumnFilters {
   packageManager: string;
   licenseExpression: string;
   scopeSummary: string;
+  directSummary: string;
 }
 
 export const EMPTY_COLUMN_FILTERS: ColumnFilters = {
-  projectName: '', scopeLabels: '', packageName: '', version: '', packageManager: '', licenseExpression: '', scopeSummary: '',
+  projectName: '', scopeLabels: '', packageName: '', version: '', packageManager: '', licenseExpression: '', scopeSummary: '', directSummary: '',
 };
 
 function releaseDedupeKey(item: TaggedRelease): string {
@@ -83,13 +84,13 @@ export function upsertDedupedRelease(map: Map<string, TaggedRelease>, item: Tagg
 }
 
 export function packageManagerOf(packageUrl?: string): string {
-  if (!packageUrl) return '—';
+  if (!packageUrl) return '-';
   const m = /^pkg:([^/]+)\//.exec(packageUrl);
-  return m ? m[1].toUpperCase() : '—';
+  return m ? m[1].toUpperCase() : '-';
 }
 
 export function packageNameOf(packageUrl?: string): string {
-  if (!packageUrl) return '—';
+  if (!packageUrl) return '-';
   return decodeURIComponent(packageUrl.replace(/^pkg:[^/]+\//, ''));
 }
 

@@ -33,8 +33,8 @@ only works if an all-projects portfolio already exists.
   dependency inventory of the targeted branch. No query required to see anything — and, like the
   native tab, it doesn't wait for the whole inventory before showing something: each fetched page
   streams into the table immediately.
-- **Per-column filter + sort** — every column (Project, Branch/PR, Package, Version, Manager,
-  License, Scope) has its own sort button and filter control in the header, AND-combined,
+- **Per-column filter + sort** — every column (Project, Branch/PR, Package, Direct/Transitive,
+  Version, Manager, License, Scope) has its own sort button and filter control in the header, AND-combined,
   filtering that already-fetched list in-memory; no network call per keystroke. Every column
   shows a visible (dimmed) sort icon even when it isn't the active sort field — an earlier
   version showed nothing at all on inactive columns, which read as "not sortable" rather than
@@ -238,7 +238,7 @@ of distinct values, no realistic alternative), but is bad UX for something like 
 - **Two separate facet computations, on purpose** — conflating them was a bug, not a
   simplification:
   - `computeFullFacets` (`DependencySearchResultsTable.tsx`) makes **one pass** over the full,
-    unfiltered `items`, building a `value → count` `Map` for all 7 columns simultaneously (not 7
+    unfiltered `items`, building a `value → count` `Map` for all 8 columns simultaneously (not 8
     separate passes). Debounced 300ms off `items` (longer than the 120ms filter debounce) — a
     background enhancement, not something filtering depends on to function. Used **only** to
     decide *mode* (checkbox picker vs. free text, via cardinality) and to seed the free-text

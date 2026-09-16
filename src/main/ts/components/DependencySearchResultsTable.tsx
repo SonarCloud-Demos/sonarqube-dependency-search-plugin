@@ -75,12 +75,13 @@ function fieldValue(item: TaggedRelease, field: SortField): string {
     case 'scopeLabels': return item.scopeLabels.join(', ');
     case 'packageManager': return packageManagerOf(item.packageUrl);
     case 'scopeSummary': return item.scopeSummary ?? '';
+    case 'directSummary': return isDirect(item) ? 'direct' : 'transitive';
     default: return '';
   }
 }
 
 const ALL_FIELDS: SortField[] = [
-  'projectName', 'scopeLabels', 'packageName', 'version', 'packageManager', 'licenseExpression', 'scopeSummary',
+  'projectName', 'scopeLabels', 'packageName', 'version', 'packageManager', 'licenseExpression', 'scopeSummary', 'directSummary',
 ];
 
 /** One full pass over `items`, building a value→count map per column at once —
@@ -118,12 +119,15 @@ function renderCell(item: TaggedRelease, field: SortField): React.ReactNode {
       return (
         <span style={{ fontFamily: 'monospace' }}>
           {url ? <TableLink href={url}>{packageNameOf(item.packageUrl)}</TableLink> : packageNameOf(item.packageUrl)}
-          <span style={{ marginLeft: '5px', fontSize: '10px', color: isDirect(item) ? '#8b5cf6' : '#6b7280', fontFamily: 'sans-serif', fontWeight: 600 }}>
-            {isDirect(item) ? 'direct' : 'transitive'}
-          </span>
         </span>
       );
     }
+    case 'directSummary':
+      return (
+        <span style={{ fontSize: '11px', fontWeight: 600, color: isDirect(item) ? '#8b5cf6' : '#6b7280' }}>
+          {isDirect(item) ? 'direct' : 'transitive'}
+        </span>
+      );
     case 'version':
       return <span style={{ fontFamily: 'monospace' }}>{item.version ?? '-'}</span>;
     case 'packageManager': {
@@ -285,7 +289,7 @@ export function DependencySearchResultsTable({
   }, [items, activeFilterEntries, sortBy, sortDir, fullFacets, filterDropdownThreshold]);
 
   // Dynamic re-narrowing for checkbox-picker columns only (cheap: low-cardinality by
-  // definition — typically 2-3 of the 7 columns). For each such column, apply every
+  // definition — typically 2-3 of the 8 columns). For each such column, apply every
   // *other* active filter first, then count what's left — so picking a value in one
   // column narrows the options/counts shown in the others, standard faceted-search
   // behavior. Deliberately not done for free-text columns (Package/Version/...): those
@@ -330,6 +334,7 @@ export function DependencySearchResultsTable({
     if (showProjectColumn) cols.push({ field: 'projectName', label: 'Project', width: '160px' });
     if (showScopeColumn) cols.push({ field: 'scopeLabels', label: 'Branch / PR', width: '180px' });
     cols.push({ field: 'packageName', label: 'Package', width: 'minmax(220px, 2fr)' });
+    cols.push({ field: 'directSummary', label: 'Direct / Transitive', width: '130px' });
     cols.push({ field: 'version', label: 'Version', width: '140px' });
     cols.push({ field: 'packageManager', label: 'Manager', width: '110px' });
     cols.push({ field: 'licenseExpression', label: 'License', width: '170px' });

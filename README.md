@@ -27,8 +27,8 @@ a portfolio view by package name and reading version rows one by one.
 - **Landing view** — with the filter fields empty, shows the full dependency inventory of the
   targeted branch, same as the native "Dependencies" tab. Results stream in page by page as
   they're fetched, so the table starts filling in immediately instead of waiting for everything.
-- **Per-column filter + sort** — every column (Project, Branch/PR, Package, Version, Manager,
-  License, Scope) has its own filter control and sort arrow, AND-combined, over the already-
+- **Per-column filter + sort** — every column (Project, Branch/PR, Package, Direct/Transitive,
+  Version, Manager, License, Scope) has its own filter control and sort arrow, AND-combined, over the already-
   fetched list. No extra request per keystroke, and the filters you've typed survive the table
   briefly reloading (e.g. when you toggle all-branches) instead of resetting. Columns with fewer
   distinct values than a threshold (admin-configurable, default 12 — typically Manager, Scope)

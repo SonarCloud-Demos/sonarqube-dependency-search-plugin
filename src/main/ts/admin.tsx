@@ -57,7 +57,7 @@ function AdminPage() {
         <div style={headingStyle}>Capabilities</div>
         <ul style={listStyle}>
           <li>Landing view lists the full dependency inventory of the targeted branch  -  same idea as the native Dependencies tab, streamed in page by page so it starts rendering immediately</li>
-          <li>Per-column filter + sort (Project, Branch/PR, Package, Version, Manager, License, Scope)  -  all in-memory over the already-fetched list, no extra requests per keystroke. Low-cardinality columns (below the filter dropdown threshold) get a checkbox picker with counts; the rest stay free text with autocomplete</li>
+          <li>Per-column filter + sort (Project, Branch/PR, Package, Direct/Transitive, Version, Manager, License, Scope) - all in-memory over the already-fetched list, no extra requests per keystroke. Low-cardinality columns (below the filter dropdown threshold) get a checkbox picker with counts; the rest stay free text with autocomplete</li>
           <li>Optional "all branches &amp; pull requests" switch reuses whatever's already loaded and only fetches the genuinely new branches/PRs, deduplicating entries found on more than one</li>
           <li>Portfolios and the global "all projects" scope always show a run-approval gate first  -  a project count, the all-branches switch, and a live duration estimate  -  since those fan out to many projects at once</li>
           <li>Admin-configurable results pagination bounds how many rows render at once, so scopes with hundreds of thousands of dependencies stay responsive  -  the page itself scrolls, no nested scroll box</li>
