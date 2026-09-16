@@ -385,14 +385,33 @@ these are test-scope/dev-tooling dependencies of the *build*, not anything shipp
 - `org.assertj:assertj-core` 3.24.2 -> 3.27.7 (test scope) - fixes CVE-2026-24400 (XXE in
   `isXmlEqualTo`/`XmlStringPrettyFormatter`; this plugin's tests don't use either API, so was never
   exploitable here, but bumped anyway)
-- `uuid` (npm) 8.3.2 -> 14.0.2, pinned via a `resolutions` entry in `package.json` since it's a
+- `uuid` (npm) 8.3.2 -> **11.1.1**, pinned via a `resolutions` entry in `package.json` since it's a
   transitive dependency of `jest-junit` (dev-only, JUnit XML test reporting), not a direct
   dependency - fixes CVE-2026-41907 (out-of-bounds write in `v3()`/`v5()`/`v6()` when given an
   external buffer). `jest-junit` only calls `v1()` with no buffer argument, so this one was also
-  never actually exploitable via this project's usage, but bumped for hygiene. Verified the fixed
-  version's CJS entry point still resolves correctly for `require('uuid')` (uuid 14.x is
-  `"type": "module"` at the package root, but its `exports` map still serves a CommonJS build under
-  the `"node"` condition) and that `jest-junit`'s report generation still works end to end.
+  never actually exploitable via this project's usage, but bumped for hygiene.
+
+  First attempt used the latest patched version, **14.0.2** — passed every local check, including
+  `require('uuid')` and a full `jest`/`jest-junit` run, and got committed/pushed on that basis. It
+  broke for a completely different reason on the *actual* release workflow: `actions/setup-node@v4`
+  pins Node **16.14.0** (matching `frontend-maven-plugin`'s configured version), and uuid 14.x's
+  package.json is `"type": "module"` with only a `"node"` exports condition (no explicit
+  `"require"`) pointing at `dist-node/index.js` — a file Node 16 cannot `require()` at all
+  (`ERR_REQUIRE_ESM`), while newer Node versions silently made it work via a `require(esm)`
+  capability Node 16 doesn't have. My local verification passed because it ran against my
+  machine's system Node (v26), not the project's actual pinned toolchain — a false positive that
+  only local per-tool commands could produce; `mvn test` locally *also* passed for the same
+  reason, since exec-maven-plugin's `npm test` step resolves `npm`/`node` from `PATH`, not from
+  the pinned copy `frontend-maven-plugin` caches under `./node/`. The real check, run after the
+  fact: `./node/node ./node_modules/.bin/jest` — the actual pinned binary — reproduced the exact
+  CI failure. **Lesson**: when a project pins a specific Node version, verify against that exact
+  binary (`./node/node`, not whatever's on `PATH`), not just "it built/tested locally."
+
+  11.1.1 is one of the CVE advisory's explicit backport-patch releases (alongside 12.0.1, 13.0.1)
+  for pre-14 major lines, and unlike 12.0.1/13.0.1, its `exports` map has a real explicit
+  `"require"` condition pointing at a genuinely separate `dist/cjs/` build — verified this actually
+  resolves and runs correctly under `./node/node` (the pinned 16.14.0 binary), not just under a
+  newer system Node.
 
 Second pass (3 more risks found once the first 4 dropped off the list):
 
