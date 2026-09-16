@@ -358,6 +358,32 @@ these are test-scope/dev-tooling dependencies of the *build*, not anything shipp
   `"type": "module"` at the package root, but its `exports` map still serves a CommonJS build under
   the `"node"` condition) and that `jest-junit`'s report generation still works end to end.
 
+Second pass (3 more risks found once the first 4 dropped off the list):
+
+- `org.postgresql:postgresql` 42.7.11 -> 42.7.12 - fixes CVE-2026-54291 (channel-binding downgrade,
+  "Failing Open")
+- `org.sonarsource.sonarqube:sonar-ws` / `sonar-testing-harness` (`sonarqube.version` property)
+  10.1.0.73491 -> **26.1.0.118079** (the 2026.1 LTA release, not the latest bleeding-edge train -
+  keeps these test-tooling dependencies aligned with the SonarQube LTA line rather than a version
+  most self-hosted instances won't have reached yet) - fixes CVE-2024-38460 (encrypted values
+  leaked in cleartext via GET params in logs; fixed as of 10.4/9.9.4 LTA, well below 26.1).
+  `sonar-orchestrator`/`sonar-orchestrator-junit4` bumped alongside (4.1.0.495 ->
+  6.4.3.4676) to stay compatible with the newer harness. **Important:** these three are all
+  `test`-scope only — used to write integration/black-box tests that talk to a real SonarQube
+  instance during development, excluded from the packaged jar, and have zero relationship to
+  which SonarQube Server versions can load this plugin. That's governed entirely by
+  `sonar.apiVersion` / `pluginApiMinVersion` (currently `11.1.0.2693`, unchanged by this bump).
+  Also confirmed: nothing in `src/` actually uses `Orchestrator`/`WsClient`/sonar-ws at all (no
+  `*BBT.java` files exist either) - this bump is pure hygiene on unused scaffolding, not a real
+  fix for an exploitable path in this project.
+- `eslint` (npm, dev only) 8.49.0 -> 10.10.0 (latest, well past the 9.26.0 minimum fix) - fixes
+  CVE-2025-50537 (stack overflow via circular references in `RuleTester`, an eslint-internal
+  testing utility this project never uses since it defines no custom rules). Not wired into any
+  script here (no `lint` script in `package.json`, no `.eslintrc`/`eslint.config.js` in the repo),
+  so bumping across the 8->9 flat-config-only breaking change carries no verifiable risk - there's
+  nothing to break, since eslint is never actually invoked by this project's own tooling. A future
+  `lint` script would need `eslint-config-sonarqube` and friends migrated to flat config first.
+
 ## Open questions (for further iteration)
 
 - With virtualization gone, `resultsPageSize` is the only thing bounding per-page DOM size — an
