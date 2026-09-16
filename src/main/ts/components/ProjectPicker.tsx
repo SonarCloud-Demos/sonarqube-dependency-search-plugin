@@ -61,7 +61,9 @@ export function ProjectPicker({ onSelect }: Readonly<ProjectPickerProps>) {
                 onClick={() => onSelect(c)}
                 style={{ width: '100%', textAlign: 'left', padding: '8px 12px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', gap: '8px', fontSize: '13px' }}
                 onMouseOver={(e) => { e.currentTarget.style.background = '#f5f5f5'; }}
+                onFocus={(e) => { e.currentTarget.style.background = '#f5f5f5'; }}
                 onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                onBlur={(e) => { e.currentTarget.style.background = 'transparent'; }}
               >
                 <span>{c.name}</span>
                 <span style={{ color: '#888', fontSize: '11px', whiteSpace: 'nowrap' }}>{QUALIFIER_LABELS[c.qualifier] ?? c.qualifier}</span>
