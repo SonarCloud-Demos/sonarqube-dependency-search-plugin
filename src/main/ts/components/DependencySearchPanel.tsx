@@ -26,6 +26,7 @@ import { concurrentMap } from '../utils/concurrentMap';
 import { DependencySearchResultsTable } from './DependencySearchResultsTable';
 import { ProjectPicker } from './ProjectPicker';
 import { Disclaimer } from './shared/Disclaimer';
+import { InfoCallout } from './shared/InfoCallout';
 
 const MAX_CONCURRENT_SCOPES = 20;
 const DEFAULT_AVG_BRANCHES_AND_PRS = 5;
@@ -291,9 +292,9 @@ export function DependencySearchPanel({ mode, component: fixedComponent, branchL
       </div>
 
       {isMultiProject && (
-        <div style={{ marginBottom: '12px', fontSize: '12px', color: '#555', background: '#f3f4f4', border: '1px solid #e0e0e0', borderRadius: '4px', padding: '8px 12px', maxWidth: '640px' }}>
+        <InfoCallout>
           Results respect your project permissions. Dependencies of projects you don't have access to stay hidden and unsearchable here.
-        </div>
+        </InfoCallout>
       )}
 
       {mode === 'global' && pickedComponent && (

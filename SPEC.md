@@ -322,6 +322,26 @@ punctuation - hyphens, three-dot ellipses, straight quotes - no em/en dashes, cu
 typographic ellipsis characters. Code comments and docs are unaffected by this; the rule is about
 what a user actually sees rendered in the browser, not about how the source is written.
 
+### Matching the native look — Echoes design tokens
+
+`InfoCallout` (`components/shared/InfoCallout.tsx`) reproduces SonarQube's native `MessageCallout`
+(Info variety) look for the permission-boundary notice, without importing
+`@sonarsource/echoes-react` itself — that package isn't exposed to plugins as a global (only
+`react`/`react-dom`/`sonar-request`/`i18n`/`sonar-config` are, per `conf/esbuild-config.js`).
+Instead it references the same CSS custom properties the host page already defines globally on
+`:root` (`--echoes-color-background-info-weak-default`, `--echoes-color-border-info-weak`,
+`--echoes-color-text-info`, `--echoes-color-icon-info`, `--echoes-dimension-space-*`,
+`--echoes-border-radius-200`) via `var(--x, <light-theme-hex-fallback>)`. Confirmed real values
+by pulling the running instance's own `echoes-*.css` and reading the actual
+`:root,[data-echoes-theme=light]` / `[data-echoes-theme=dark]` blocks (not guessed) — and found
+the real `MessageCallout` usage pattern in the `sonarqube-webapp` source checkout
+(`@sonarsource/echoes-react`'s `<MessageCallout variety={MessageVariety.Info}>`) to confirm this
+is in fact the right visual target to match. Net effect: light/dark theme switching is automatic
+(the host flips the CSS variables, this component just reads them), with no theme-detection code
+needed here. Also dropped the notice's `maxWidth: 640px` in favor of `width: 100%` so it spans the
+page like the rest of the panel, per explicit feedback that it looked cramped next to a full-width
+results table.
+
 ### Bytecode target — Java 21
 
 `jdk.min.version` and `maven-compiler-plugin`'s `<release>` are both `21` (bumped from the initial
