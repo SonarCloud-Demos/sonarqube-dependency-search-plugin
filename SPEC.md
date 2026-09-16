@@ -34,8 +34,11 @@ only works if an all-projects portfolio already exists.
   native tab, it doesn't wait for the whole inventory before showing something: each fetched page
   streams into the table immediately.
 - **Per-column filter + sort** — every column (Project, Branch/PR, Package, Version, Manager,
-  License, Scope) has its own sort-arrow button and filter control in the header, AND-combined,
-  filtering that already-fetched list in-memory; no network call per keystroke. Filter/sort state
+  License, Scope) has its own sort button and filter control in the header, AND-combined,
+  filtering that already-fetched list in-memory; no network call per keystroke. Every column
+  shows a visible (dimmed) sort icon even when it isn't the active sort field — an earlier
+  version showed nothing at all on inactive columns, which read as "not sortable" rather than
+  "sortable, just not right now." Filter/sort state
   lives in the panel, not the table, so it survives the table being briefly unmounted while scopes
   re-resolve (e.g. toggling "all branches") — typing something in doesn't get reset by an
   unrelated loading flicker.
@@ -232,21 +235,33 @@ Motivation: typing a substring into a plain text box works fine for Package/Vers
 of distinct values, no realistic alternative), but is bad UX for something like Manager or Scope
 — a handful of exact values (`NPM`, `MAVEN`, `PYPI`, ...) where a picker beats typing.
 
-- `computeFacets` (`DependencySearchResultsTable.tsx`) makes **one pass** over `items`, building
-  a `value → count` `Map` for all 7 columns simultaneously (not 7 separate passes) — the cheapest
-  way to get every column's cardinality at once. Static: computed from the full unfiltered list,
-  not recomputed as other columns' filters change (dynamic/narrowing facets would be nicer but
-  cost more and risk confusing counts mid-selection — not done).
-- Debounced 300ms off `items` (longer than the 120ms filter debounce) — it's a background
-  enhancement, not something the filter depends on to function; skip recomputing it on every
-  single streamed page while a large fetch is still landing.
+- **Two separate facet computations, on purpose** — conflating them was a bug, not a
+  simplification:
+  - `computeFullFacets` (`DependencySearchResultsTable.tsx`) makes **one pass** over the full,
+    unfiltered `items`, building a `value → count` `Map` for all 7 columns simultaneously (not 7
+    separate passes). Debounced 300ms off `items` (longer than the 120ms filter debounce) — a
+    background enhancement, not something filtering depends on to function. Used **only** to
+    decide *mode* (checkbox picker vs. free text, via cardinality) and to seed the free-text
+    columns' `<datalist>`. Deliberately not re-narrowed by other filters: a column flipping
+    between checkbox and text mode as you type elsewhere would be far more jarring than a
+    free-text autocomplete list staying a little stale.
+  - `narrowedFacetValues` (a `useMemo`) is the part that actually re-narrows: for each
+    checkbox-picker column, it applies every *other* active filter first, then counts what's
+    left — so picking "NPM" under Manager immediately shrinks License's option list/counts to
+    only what NPM packages actually have. Recomputed whenever the debounced filters or `items`
+    change. Deliberately limited to checkbox-mode columns only (typically 2-3 of 7, low-
+    cardinality by definition) — doing this for Package/Version too would mean an extra full
+    pass over up to 300k rows per keystroke on the expensive columns, the exact cost this
+    feature was trying to avoid; free-text autocomplete stays on the static list instead.
+  - A value the user has already checked stays visible (at count 0) even if other filters just
+    narrowed it out, rather than a checked box silently disappearing from the list.
 - A column becomes a **checkbox picker** (`FacetDropdown`, a native `<details>/<summary>` —
-  zero JS needed for open/close/click-outside) when its distinct-value count is below
-  `filterDropdownThreshold` (admin-configurable, default 12). Selections are OR'd within the
-  column, AND'd across columns like every other filter.
-- At or above the threshold, the column stays a plain text input but gets a `<datalist>` of up
-  to 500 of its distinct values for browser-native autocomplete — no extra library, no custom
-  typeahead component.
+  zero JS needed for open/close/click-outside) when its distinct-value count (from the full,
+  static pass) is below `filterDropdownThreshold` (admin-configurable, default 12). Selections
+  are OR'd within the column, AND'd across columns like every other filter.
+- At or above the threshold, the column stays a plain text input with a `<datalist>` of up to
+  500 of its distinct values (from the static pass) for browser-native autocomplete — no extra
+  library, no custom typeahead component, and not re-narrowed (see above).
 - **Encoding**: rather than giving `ColumnFilters` a second shape (string | string[]), a
   checkbox selection is encoded into the same string slot the free-text filter already uses,
   joined with `U+001F` (ASCII unit separator) — a control character that won't collide with any

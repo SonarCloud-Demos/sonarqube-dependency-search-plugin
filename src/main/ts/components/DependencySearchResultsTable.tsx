@@ -83,8 +83,11 @@ const ALL_FIELDS: SortField[] = [
 ];
 
 /** One full pass over `items`, building a value→count map per column at once —
- * cheaper than a separate pass per column. */
-function computeFacets(items: TaggedRelease[]): Record<SortField, Map<string, number>> {
+ * cheaper than a separate pass per column. Static (ignores active filters): used
+ * only to decide *mode* (checkbox picker vs. free text) and to seed the free-text
+ * columns' <datalist>, neither of which should flicker as other filters narrow —
+ * see `narrowFacet` below for the part that actually re-narrows. */
+function computeFullFacets(items: TaggedRelease[]): Record<SortField, Map<string, number>> {
   const facets: Record<string, Map<string, number>> = {};
   for (const field of ALL_FIELDS) facets[field] = new Map();
   for (const item of items) {
@@ -187,20 +190,37 @@ export function DependencySearchResultsTable({
 }: Readonly<DependencySearchResultsTableProps>) {
   const [debouncedFilters, setDebouncedFilters] = useState<ColumnFilters>(filters);
   const [currentPage, setCurrentPage] = useState(0);
-  const [facets, setFacets] = useState<Record<SortField, Map<string, number>> | null>(null);
+  const [fullFacets, setFullFacets] = useState<Record<SortField, Map<string, number>> | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedFilters(filters), FILTER_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [filters]);
 
-  // Static faceting: computed once (debounced) from the full unfiltered `items`, not
-  // recomputed as other columns' filters change. Cheaper, and avoids counts shifting
-  // confusingly while someone's mid-selection on another column.
+  // Static, full-dataset pass: decides *mode* only (checkbox picker vs. free text),
+  // and seeds free-text columns' <datalist>. Deliberately not re-narrowed by other
+  // filters — a column switching between checkbox/text mode as you type elsewhere
+  // would be far more jarring than the free-text datalist staying a little stale.
   useEffect(() => {
-    const t = setTimeout(() => setFacets(computeFacets(items)), FACET_DEBOUNCE_MS);
+    const t = setTimeout(() => setFullFacets(computeFullFacets(items)), FACET_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [items]);
+
+  function isFacetField(field: SortField): boolean {
+    const count = fullFacets?.[field]?.size;
+    return count !== undefined && count > 0 && count < filterDropdownThreshold;
+  }
+
+  function matchesField(item: TaggedRelease, field: SortField, raw: string): boolean {
+    return isFacetField(field)
+      ? decodeSelection(raw).has(fieldValue(item, field))
+      : fieldValue(item, field).toLowerCase().includes(raw.trim().toLowerCase());
+  }
+
+  const activeFilterEntries = useMemo(
+    () => (Object.entries(debouncedFilters) as Array<[SortField, string]>).filter(([, v]) => v.trim() !== ''),
+    [debouncedFilters]
+  );
 
   // Back to page 1 when the filter/sort criteria change — not when `items` merely
   // grows (streaming in more pages shouldn't kick the user off whatever page they're
@@ -208,32 +228,52 @@ export function DependencySearchResultsTable({
   // below clamps it without needing its own effect.
   useEffect(() => {
     setCurrentPage(0);
-  }, [debouncedFilters, sortBy, sortDir]);
-
-  function isFacetField(field: SortField): boolean {
-    const count = facets?.[field]?.size;
-    return count !== undefined && count > 0 && count < filterDropdownThreshold;
-  }
+  }, [activeFilterEntries, sortBy, sortDir]);
 
   const filteredAndSorted = useMemo(() => {
-    const activeFilters = (Object.entries(debouncedFilters) as Array<[SortField, string]>)
-      .filter(([, v]) => v.trim() !== '');
-
-    const rows = activeFilters.length === 0
+    const rows = activeFilterEntries.length === 0
       ? items
-      : items.filter((item) => activeFilters.every(([field, raw]) => {
-        if (isFacetField(field)) {
-          return decodeSelection(raw).has(fieldValue(item, field));
-        }
-        return fieldValue(item, field).toLowerCase().includes(raw.trim().toLowerCase());
-      }));
+      : items.filter((item) => activeFilterEntries.every(([field, raw]) => matchesField(item, field, raw)));
 
     return [...rows].sort((a, b) => {
       const cmp = fieldValue(a, sortBy).localeCompare(fieldValue(b, sortBy));
       return sortDir === 'asc' ? cmp : -cmp;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- isFacetField reads `facets`, already a dep
-  }, [items, debouncedFilters, sortBy, sortDir, facets, filterDropdownThreshold]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- matchesField reads `fullFacets`, already a dep
+  }, [items, activeFilterEntries, sortBy, sortDir, fullFacets, filterDropdownThreshold]);
+
+  // Dynamic re-narrowing for checkbox-picker columns only (cheap: low-cardinality by
+  // definition — typically 2-3 of the 7 columns). For each such column, apply every
+  // *other* active filter first, then count what's left — so picking a value in one
+  // column narrows the options/counts shown in the others, standard faceted-search
+  // behavior. Deliberately not done for free-text columns (Package/Version/...): those
+  // are the high-cardinality ones, where an extra full pass per keystroke is the exact
+  // cost this whole feature was trying to avoid, and the payoff (autocomplete list
+  // narrowing) is far less valuable than it is for a picker with visible counts.
+  const narrowedFacetValues = useMemo(() => {
+    if (!fullFacets) return null;
+    const result: Partial<Record<SortField, Map<string, number>>> = {};
+    for (const field of ALL_FIELDS) {
+      if (!isFacetField(field)) continue;
+      const otherFilters = activeFilterEntries.filter(([f]) => f !== field);
+      const subset = otherFilters.length === 0
+        ? items
+        : items.filter((item) => otherFilters.every(([f, raw]) => matchesField(item, f, raw)));
+      const counts = new Map<string, number>();
+      for (const item of subset) {
+        const v = fieldValue(item, field);
+        counts.set(v, (counts.get(v) ?? 0) + 1);
+      }
+      // Keep a currently-selected value visible (at count 0) even if narrowed out by
+      // other filters — otherwise a checked box could silently vanish from the list.
+      for (const v of decodeSelection(filters[field])) {
+        if (!counts.has(v)) counts.set(v, 0);
+      }
+      result[field] = counts;
+    }
+    return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isFacetField/matchesField read `fullFacets`, already a dep
+  }, [items, activeFilterEntries, fullFacets, filterDropdownThreshold, filters]);
 
   const totalPages = Math.max(1, Math.ceil(filteredAndSorted.length / pageSize));
   const safePage = Math.min(currentPage, totalPages - 1);
@@ -270,14 +310,14 @@ export function DependencySearchResultsTable({
       return (
         <FacetDropdown
           label={label}
-          values={facets![field]}
+          values={narrowedFacetValues?.[field] ?? fullFacets![field]}
           selected={decodeSelection(filters[field])}
           onChange={(next) => onFilterChange(field, encodeSelection(next))}
         />
       );
     }
     const datalistId = `dependencysearch-${field}-options`;
-    const facetValues = facets?.[field];
+    const facetValues = fullFacets?.[field];
     return (
       <>
         <input

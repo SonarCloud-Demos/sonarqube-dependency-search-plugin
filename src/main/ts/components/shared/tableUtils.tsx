@@ -26,8 +26,11 @@ export const colInput: React.CSSProperties = {
 
 // ── Shared helpers ──────────────────────────────────────────────────────────
 
-export function sortArrow(field: string, sortBy: string, sortDir: 'asc' | 'desc'): string {
-  if (sortBy !== field) return '';
+/** Every column needs a visible sort affordance, not just the active one — a plain
+ * label with no icon at all doesn't read as clickable, which is exactly what made
+ * sorting easy to miss on every column except whichever one happened to be active. */
+export function sortArrow(field: string, sortBy: string, sortDir: 'asc' | 'desc'): React.ReactNode {
+  if (sortBy !== field) return <span style={{ opacity: 0.4 }}> ⇅</span>;
   return sortDir === 'asc' ? ' ↑' : ' ↓';
 }
 
