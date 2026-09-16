@@ -354,9 +354,25 @@ no compatibility shim.
 `.github/workflows/release.yml` is `workflow_dispatch`-only — it never runs on push/commit, so
 merging to any branch can't accidentally cut a release. Run it manually from the Actions tab after
 bumping `<version>` in `pom.xml` to a final (non-SNAPSHOT) value. It builds with JDK 21 + the pinned
-Node/Yarn toolchain (registry auth via `secrets.NPM_AUTH_TOKEN` / `secrets.YARN_NPM_AUTH_TOKEN`,
-never hardcoded), refuses to proceed on a SNAPSHOT version or a tag that already exists, then tags
-`v<version>` and publishes the built jar as a GitHub Release asset via `softprops/action-gh-release`.
+Node/Yarn toolchain, refuses to proceed on a SNAPSHOT version or a tag that already exists, then
+tags `v<version>` and publishes the built jar as a GitHub Release asset via
+`softprops/action-gh-release`.
+
+**No npm registry secrets, on purpose.** `.yarnrc.yml`'s committed `npmRegistryServer` points at an
+internal Artifactory mirror (`repox.jfrog.io`) because the local dev network this was built on
+blocks `registry.npmjs.org` directly — that's a local-machine constraint, not something CI needs or
+should inherit. GitHub Actions runners reach the public npm registry directly, so the workflow's
+"Install frontend dependencies" step sets `YARN_NPM_REGISTRY_SERVER: https://registry.npmjs.org` as
+a step-level env var, which overrides the committed mirror setting for that run only (Yarn env-var
+settings take precedence over `.yarnrc.yml`) — no token, no secret, nothing to rotate. The one thing
+that had to change to make this safe: `.yarnrc.yml`'s `npmAuthToken: "${YARN_NPM_AUTH_TOKEN}"` used
+strict interpolation that hard-errors ("Environment variable not found") if the var is unset, which
+is exactly the CI case now that no secret is configured — changed to
+`"${YARN_NPM_AUTH_TOKEN:-}"` (Yarn's supported default-value syntax) so it resolves to an empty,
+harmless value instead. Local dev is unaffected either way, since the corporate token is still set
+there and still gets picked up when present. First attempt at this release mistakenly added
+`NPM_AUTH_TOKEN`/`YARN_NPM_AUTH_TOKEN` as real repo secrets pointing at the jfrog mirror — removed
+once it was clear the mirror (and any token for it) was never the right thing for CI to depend on.
 
 ### Dependency CVE remediation (2026-09-16)
 

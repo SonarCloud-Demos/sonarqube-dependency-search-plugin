@@ -50,13 +50,14 @@ jobs:
 
       - name: Install frontend dependencies (yarn)
         env:
-          YARN_NPM_AUTH_TOKEN: ${{ secrets.YARN_NPM_AUTH_TOKEN }}
+          # CI runners can reach the public npm registry directly — no corporate mirror,
+          # no auth token needed. .yarnrc.yml's npmRegistryServer/npmAuthToken (the
+          # internal jfrog mirror, for local dev on a network that blocks npmjs.org
+          # directly) are overridden here via Yarn's env-var settings mechanism.
+          YARN_NPM_REGISTRY_SERVER: https://registry.npmjs.org
         run: node .yarn/releases/yarn-3.4.1.cjs install --immutable
 
       - name: Build plugin
-        env:
-          NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
-          YARN_NPM_AUTH_TOKEN: ${{ secrets.YARN_NPM_AUTH_TOKEN }}
         run: mvn -B package -DskipTests
 
       - name: Locate built jar
