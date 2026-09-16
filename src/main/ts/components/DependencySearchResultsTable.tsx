@@ -333,12 +333,14 @@ export function DependencySearchResultsTable({
     const cols: ColumnDef[] = [];
     if (showProjectColumn) cols.push({ field: 'projectName', label: 'Project', width: '160px' });
     if (showScopeColumn) cols.push({ field: 'scopeLabels', label: 'Branch / PR', width: '180px' });
-    cols.push({ field: 'packageName', label: 'Package', width: 'minmax(220px, 2fr)' });
-    cols.push({ field: 'directSummary', label: 'Direct / Transitive', width: '130px' });
-    cols.push({ field: 'version', label: 'Version', width: '140px' });
-    cols.push({ field: 'packageManager', label: 'Manager', width: '110px' });
-    cols.push({ field: 'licenseExpression', label: 'License', width: '170px' });
-    cols.push({ field: 'scopeSummary', label: 'Scope', width: '100px' });
+    cols.push(
+      { field: 'packageName', label: 'Package', width: 'minmax(220px, 2fr)' },
+      { field: 'directSummary', label: 'Direct / Transitive', width: '130px' },
+      { field: 'version', label: 'Version', width: '140px' },
+      { field: 'packageManager', label: 'Manager', width: '110px' },
+      { field: 'licenseExpression', label: 'License', width: '170px' },
+      { field: 'scopeSummary', label: 'Scope', width: '100px' }
+    );
     return cols;
   }, [showProjectColumn, showScopeColumn]);
 

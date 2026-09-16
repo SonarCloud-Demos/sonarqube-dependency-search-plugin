@@ -15,7 +15,6 @@ import { ComponentSummary } from '../api/componentSearch';
 import {
   ColumnFilters,
   EMPTY_COLUMN_FILTERS,
-  ScaRelease,
   SearchScope,
   SortDir,
   SortField,
@@ -167,9 +166,11 @@ export function DependencySearchPanel({ mode, component: fixedComponent, branchL
     setScopesLoading(true);
     setScopesError(null);
     const isAllProjects = activeComponent.qualifier === 'ALL';
-    const resolver = isAllProjects
-      ? (allBranchesMode ? resolveAllProjectsAllBranchesAndPullRequests() : resolveAllProjectsScopes())
-      : (allBranchesMode ? resolveAllBranchesAndPullRequests(activeComponent) : resolveTargetedScopes(activeComponent, branchLike));
+    let resolver;
+    if (isAllProjects && allBranchesMode) resolver = resolveAllProjectsAllBranchesAndPullRequests();
+    else if (isAllProjects) resolver = resolveAllProjectsScopes();
+    else if (allBranchesMode) resolver = resolveAllBranchesAndPullRequests(activeComponent);
+    else resolver = resolveTargetedScopes(activeComponent, branchLike);
     resolver
       .then((s) => { if (!cancelled) setScopes(s); })
       .catch((e: unknown) => { if (!cancelled) setScopesError(errorMessage(e)); })
@@ -259,7 +260,8 @@ export function DependencySearchPanel({ mode, component: fixedComponent, branchL
   const isMultiProject = (activeComponent?.qualifier ?? 'TRK') !== 'TRK';
   const isFetching = scopesInFlight > 0;
 
-  const estimatedRequests = projectCount === null ? null : (allBranchesMode ? projectCount * avgBranchesAndPRs : projectCount);
+  let estimatedRequests: number | null = null;
+  if (projectCount !== null) estimatedRequests = allBranchesMode ? projectCount * avgBranchesAndPRs : projectCount;
   const estimatedSeconds = estimatedRequests === null ? null : estimatedRequests / throttleRps;
 
   if (pluginEnabled === false) {
@@ -327,7 +329,7 @@ export function DependencySearchPanel({ mode, component: fixedComponent, branchL
 
                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', marginBottom: '8px', cursor: 'pointer' }}>
                   <input type="checkbox" checked={allBranchesMode} onChange={(e) => setAllBranchesMode(e.target.checked)} />
-                  Include all branches &amp; pull requests (not just each project's main branch)
+                  {' '}Include all branches &amp; pull requests (not just each project's main branch)
                 </label>
 
                 {allBranchesMode && (
@@ -393,7 +395,7 @@ export function DependencySearchPanel({ mode, component: fixedComponent, branchL
               checked={allBranchesMode}
               onChange={(e) => setAllBranchesMode(e.target.checked)}
             />
-            Search all branches &amp; pull requests
+            {' '}Search all branches &amp; pull requests
           </label>
           {!allBranchesMode && isMultiProject && (
             <span style={{ fontSize: '12px', color: '#888' }}>Uses each project's main branch</span>
