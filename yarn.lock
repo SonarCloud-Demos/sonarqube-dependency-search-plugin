@@ -7206,12 +7206,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"uuid@npm:^8.3.2":
-  version: 8.3.2
-  resolution: "uuid@npm:8.3.2"
+"uuid@npm:^14.0.0":
+  version: 14.0.2
+  resolution: "uuid@npm:14.0.2"
   bin:
-    uuid: dist/bin/uuid
-  checksum: 5575a8a75c13120e2f10e6ddc801b2c7ed7d8f3c8ac22c7ed0c7b2ba6383ec0abda88c905085d630e251719e0777045ae3236f04c812184b7c765f63a70e58df
+    uuid: dist-node/bin/uuid
+  checksum: e6f906b70714a39b687eadd443493eb4fd8b7998fa289a3754af215e84418bbfeadfbc3d72da833556a9c2d6fd902d9d769e9bb6c874cf4d583f7ccd03b2456e
   languageName: node
   linkType: hard
 

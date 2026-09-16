@@ -338,6 +338,26 @@ Node/Yarn toolchain (registry auth via `secrets.NPM_AUTH_TOKEN` / `secrets.YARN_
 never hardcoded), refuses to proceed on a SNAPSHOT version or a tag that already exists, then tags
 `v<version>` and publishes the built jar as a GitHub Release asset via `softprops/action-gh-release`.
 
+### Dependency CVE remediation (2026-09-16)
+
+Found via SonarCloud's Dependency Risks page for this repo itself (not the plugin's own feature -
+these are test-scope/dev-tooling dependencies of the *build*, not anything shipped in the jar):
+
+- `org.postgresql:postgresql` 42.5.1 -> 42.7.11 (test scope, only used by `sonar-orchestrator`
+  integration tests) - fixes CVE-2024-1597 (SQL injection via `preferQueryMode=simple`) and
+  CVE-2026-42198 (unbounded CPU during SCRAM-SHA-256 auth, client-side DoS)
+- `org.assertj:assertj-core` 3.24.2 -> 3.27.7 (test scope) - fixes CVE-2026-24400 (XXE in
+  `isXmlEqualTo`/`XmlStringPrettyFormatter`; this plugin's tests don't use either API, so was never
+  exploitable here, but bumped anyway)
+- `uuid` (npm) 8.3.2 -> 14.0.2, pinned via a `resolutions` entry in `package.json` since it's a
+  transitive dependency of `jest-junit` (dev-only, JUnit XML test reporting), not a direct
+  dependency - fixes CVE-2026-41907 (out-of-bounds write in `v3()`/`v5()`/`v6()` when given an
+  external buffer). `jest-junit` only calls `v1()` with no buffer argument, so this one was also
+  never actually exploitable via this project's usage, but bumped for hygiene. Verified the fixed
+  version's CJS entry point still resolves correctly for `require('uuid')` (uuid 14.x is
+  `"type": "module"` at the package root, but its `exports` map still serves a CommonJS build under
+  the `"node"` condition) and that `jest-junit`'s report generation still works end to end.
+
 ## Open questions (for further iteration)
 
 - With virtualization gone, `resultsPageSize` is the only thing bounding per-page DOM size — an
