@@ -1,0 +1,85 @@
+name: Release
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Resolve plugin version from pom.xml
+        id: version
+        run: |
+          VERSION=$(mvn -q -DforceStdout help:evaluate -Dexpression=project.version)
+          echo "Resolved plugin version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Fail if pom.xml version is a SNAPSHOT
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if [[ "$VERSION" == *SNAPSHOT* ]]; then
+            echo "::error::pom.xml <version> is '$VERSION' — SNAPSHOT versions cannot be released. Set a final release version in pom.xml before running this workflow."
+            exit 1
+          fi
+
+      - name: Verify release tag doesn't already exist
+        run: |
+          TAG="v${{ steps.version.outputs.version }}"
+          if git ls-remote --tags origin | grep -q "refs/tags/${TAG}\$"; then
+            echo "::error::Tag ${TAG} already exists. Bump <version> in pom.xml before releasing again."
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '16.14.0'
+
+      - name: Install frontend dependencies (yarn)
+        env:
+          YARN_NPM_AUTH_TOKEN: ${{ secrets.YARN_NPM_AUTH_TOKEN }}
+        run: node .yarn/releases/yarn-3.4.1.cjs install --immutable
+
+      - name: Build plugin
+        env:
+          NPM_AUTH_TOKEN: ${{ secrets.NPM_AUTH_TOKEN }}
+          YARN_NPM_AUTH_TOKEN: ${{ secrets.YARN_NPM_AUTH_TOKEN }}
+        run: mvn -B package -DskipTests
+
+      - name: Locate built jar
+        id: jar
+        run: |
+          JAR_PATH=$(find target -maxdepth 1 -type f \
+            -name 'sonar-dependency-search-plugin-*.jar' \
+            ! -name 'original-*' ! -name '*-sources.jar' ! -name '*-tests.jar' \
+            | sort | head -n1)
+          if [ -z "$JAR_PATH" ]; then
+            echo "::error::Could not find a built plugin jar under target/"
+            exit 1
+          fi
+          echo "Found jar: $JAR_PATH"
+          echo "path=$JAR_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          files: ${{ steps.jar.outputs.path }}

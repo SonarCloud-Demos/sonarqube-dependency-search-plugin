@@ -301,6 +301,43 @@ two layers, both implemented:
    restart, and stays as defense-in-depth afterward (belt-and-suspenders, not required once the
    page really is gone from the registry).
 
+### Permission scoping
+
+Every scope this plugin fans out to (targeted project/branch/PR, all-branches, all-projects,
+portfolio) goes through the normal `api/v2/sca/releases` endpoint on the caller's own session — it
+never elevates privilege or fetches on behalf of the user. A project the caller can't Browse simply
+never contributes a scope, and its dependencies never surface, whether the search was run from that
+project directly (blocked before ever reaching this plugin) or from a portfolio/global/all-projects
+search that happens to contain it (silently skipped). Nothing here re-checks permissions itself;
+it's inherited for free from every call being made as the logged-in user. The project-level view
+doesn't need a reminder about this — there's exactly one project in scope, and you already needed
+Browse on it to be looking at the tab at all. Application, portfolio, and global (all-projects)
+views show a small permissions-boundary notice for this reason (`isMultiProject` in
+`DependencySearchPanel.tsx`, true whenever the qualifier isn't `TRK`).
+
+### UI text convention
+
+Rendered page text (panels, admin info page, table cells/placeholders) sticks to plain ASCII
+punctuation - hyphens, three-dot ellipses, straight quotes - no em/en dashes, curly quotes, or
+typographic ellipsis characters. Code comments and docs are unaffected by this; the rule is about
+what a user actually sees rendered in the browser, not about how the source is written.
+
+### Bytecode target — Java 21
+
+`jdk.min.version` and `maven-compiler-plugin`'s `<release>` are both `21` (bumped from the initial
+`11`). Trade-off: the built jar now requires a Java 21+ SonarQube instance to load at all — older
+instances will fail with `UnsupportedClassVersionError` at plugin-load time. Accepted deliberately;
+no compatibility shim.
+
+### Release workflow
+
+`.github/workflows/release.yml` is `workflow_dispatch`-only — it never runs on push/commit, so
+merging to any branch can't accidentally cut a release. Run it manually from the Actions tab after
+bumping `<version>` in `pom.xml` to a final (non-SNAPSHOT) value. It builds with JDK 21 + the pinned
+Node/Yarn toolchain (registry auth via `secrets.NPM_AUTH_TOKEN` / `secrets.YARN_NPM_AUTH_TOKEN`,
+never hardcoded), refuses to proceed on a SNAPSHOT version or a tag that already exists, then tags
+`v<version>` and publishes the built jar as a GitHub Release asset via `softprops/action-gh-release`.
+
 ## Open questions (for further iteration)
 
 - With virtualization gone, `resultsPageSize` is the only thing bounding per-page DOM size — an

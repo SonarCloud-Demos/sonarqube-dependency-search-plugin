@@ -125,15 +125,15 @@ function renderCell(item: TaggedRelease, field: SortField): React.ReactNode {
       );
     }
     case 'version':
-      return <span style={{ fontFamily: 'monospace' }}>{item.version ?? '—'}</span>;
+      return <span style={{ fontFamily: 'monospace' }}>{item.version ?? '-'}</span>;
     case 'packageManager': {
       const pm = packageManagerOf(item.packageUrl);
       return <Badge label={pm} color={PM_COLORS[pm] ?? '#777'} />;
     }
     case 'licenseExpression':
-      return <span style={{ fontFamily: 'monospace' }}>{item.licenseExpression ?? '—'}</span>;
+      return <span style={{ fontFamily: 'monospace' }}>{item.licenseExpression ?? '-'}</span>;
     case 'scopeSummary':
-      return <span style={{ color: '#666' }}>{item.scopeSummary ?? '—'}</span>;
+      return <span style={{ color: '#666' }}>{item.scopeSummary ?? '-'}</span>;
     default:
       return null;
   }
@@ -365,7 +365,7 @@ export function DependencySearchResultsTable({
         <input
           type="text"
           list={facetValues ? datalistId : undefined}
-          placeholder="filter…"
+          placeholder="filter..."
           value={filters[field]}
           onChange={(e) => onFilterChange(field, e.target.value)}
           onClick={(e) => e.stopPropagation()}
@@ -418,7 +418,7 @@ export function DependencySearchResultsTable({
         <span>
           {filteredAndSorted.length === 0
             ? '0 shown'
-            : `${(pageStart + 1).toLocaleString()}–${Math.min(pageStart + pageSize, filteredAndSorted.length).toLocaleString()} of ${filteredAndSorted.length.toLocaleString()}`}
+            : `${(pageStart + 1).toLocaleString()}-${Math.min(pageStart + pageSize, filteredAndSorted.length).toLocaleString()} of ${filteredAndSorted.length.toLocaleString()}`}
         </span>
         {totalPages > 1 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

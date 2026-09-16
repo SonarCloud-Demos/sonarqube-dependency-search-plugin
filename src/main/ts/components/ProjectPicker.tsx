@@ -45,10 +45,10 @@ export function ProjectPicker({ onSelect }: Readonly<ProjectPickerProps>) {
         type="text"
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Start typing a name…"
+        placeholder="Start typing a name..."
         style={{ width: '100%', padding: '8px 10px', fontSize: '14px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
       />
-      {loading && <div style={{ marginTop: '8px', fontSize: '12px', color: '#888' }}>Searching…</div>}
+      {loading && <div style={{ marginTop: '8px', fontSize: '12px', color: '#888' }}>Searching...</div>}
       {error && <div style={{ marginTop: '8px', fontSize: '12px', color: '#dc2626' }}>Error: {error}</div>}
       {!loading && !error && results.length === 0 && debounced.trim() !== '' && (
         <div style={{ marginTop: '8px', fontSize: '12px', color: '#888' }}>No matches.</div>

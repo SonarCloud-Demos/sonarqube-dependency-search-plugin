@@ -283,10 +283,16 @@ export function DependencySearchPanel({ mode, component: fixedComponent, branchL
           <div style={{ fontSize: '13px', color: '#444', whiteSpace: 'nowrap' }}>
             <strong style={{ fontSize: '16px' }}>{baseReleases.length.toLocaleString()}</strong>{' '}
             dependenc{baseReleases.length === 1 ? 'y' : 'ies'}
-            {isFetching && <span style={{ marginLeft: '6px', color: '#2563eb' }}>loading…</span>}
+            {isFetching && <span style={{ marginLeft: '6px', color: '#2563eb' }}>loading...</span>}
           </div>
         )}
       </div>
+
+      {isMultiProject && (
+        <div style={{ marginBottom: '12px', fontSize: '12px', color: '#555', background: '#f3f4f4', border: '1px solid #e0e0e0', borderRadius: '4px', padding: '8px 12px', maxWidth: '640px' }}>
+          Results respect your project permissions. Dependencies of projects you don't have access to stay hidden and unsearchable here.
+        </div>
+      )}
 
       {mode === 'global' && pickedComponent && (
         <div style={{ marginBottom: '12px', fontSize: '13px', color: '#444' }}>
@@ -307,10 +313,10 @@ export function DependencySearchPanel({ mode, component: fixedComponent, branchL
               {activeComponent?.qualifier === 'ALL'
                 ? 'This searches every project you can access, instance-wide.'
                 : 'This searches every project in this portfolio.'}
-              {' '}Every project needs at least one request — approve the estimate below before it runs.
+              {' '}Every project needs at least one request. Approve the estimate below before it runs.
             </p>
 
-            {projectCountLoading && <p style={{ margin: '0 0 8px', fontSize: '12px' }}>Counting projects…</p>}
+            {projectCountLoading && <p style={{ margin: '0 0 8px', fontSize: '12px' }}>Counting projects...</p>}
             {projectCountError && <p style={{ margin: '0 0 8px', fontSize: '12px', color: '#dc2626' }}>Failed to count projects: {projectCountError}</p>}
 
             {projectCount !== null && (
@@ -343,7 +349,7 @@ export function DependencySearchPanel({ mode, component: fixedComponent, branchL
                 {estimatedRequests !== null && estimatedSeconds !== null && (
                   <p style={{ margin: '0 0 10px', fontSize: '12px' }}>
                     Estimated <strong>{estimatedRequests.toLocaleString()}</strong> requests at {throttleRps}/s
-                    (admin-configurable, Administration → Dependency Search) → <strong>{formatDuration(estimatedSeconds)}</strong>.
+                    (<a href="/admin/settings?category=Dependency+Search" target="_blank" rel="noreferrer" style={{ color: '#2563eb' }}>admin-configurable</a>): <strong>{formatDuration(estimatedSeconds)}</strong>.
                   </p>
                 )}
 
@@ -413,7 +419,7 @@ export function DependencySearchPanel({ mode, component: fixedComponent, branchL
           )}
 
           {scopesLoading && (
-            <div style={{ padding: '24px', textAlign: 'center', color: '#666', fontSize: '13px' }}>Resolving scope…</div>
+            <div style={{ padding: '24px', textAlign: 'center', color: '#666', fontSize: '13px' }}>Resolving scope...</div>
           )}
 
           {!scopesLoading && scopes.length > 0 && (

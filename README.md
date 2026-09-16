@@ -84,6 +84,11 @@ separate custom editor — the plugin's own admin page is informational only):
 
 - SonarQube with the SCA (Software Composition Analysis) feature enabled
 - Browse permission on the target project(s)
+- A JDK 21+ SonarQube instance — the plugin jar is compiled to Java 21 bytecode and won't load on older JVMs
+
+## Permissions
+
+Dependency Search never widens what a user can already see. Every search is scoped, project by project, to the caller's own Browse permission — a portfolio, application, or instance-wide (global) search silently skips any project the user can't access, rather than exposing its dependencies. Project-level views don't need the reminder (there's exactly one project, and you already have permission on it to be looking at it); application, portfolio, and global views show a banner about this.
 
 ## Building
 
@@ -93,3 +98,7 @@ mvn package -DskipTests
 cp target/sonar-dependency-search-plugin-*.jar $SONARQUBE_HOME/extensions/plugins/
 # Restart SonarQube
 ```
+
+## Releasing
+
+The `Release` GitHub Actions workflow (`.github/workflows/release.yml`) is manual-only (`workflow_dispatch`, no push/commit trigger). Bump `<version>` in `pom.xml` to a non-SNAPSHOT value, run the workflow from the Actions tab, and it builds the jar (JDK 21), tags `v<version>`, and publishes it as a GitHub Release asset. It refuses to run against a SNAPSHOT version or an already-existing tag.
