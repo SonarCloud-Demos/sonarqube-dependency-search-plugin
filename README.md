@@ -2,6 +2,15 @@
 
 > ⚠️ **Experimental** — personal project, not an official Sonar product.
 
+**Main repository:** [sonar-solutions/sonarqube-dependency-search-plugin](https://github.com/sonar-solutions/sonarqube-dependency-search-plugin)
+— this is where development happens; open issues/PRs here.
+
+A private, independent copy (not a GitHub fork — no linkage back to the repo above) is kept in sync at
+[SonarCloud-Demos/sonarqube-dependency-search-plugin](https://github.com/SonarCloud-Demos/sonarqube-dependency-search-plugin)
+so the project can be shared with people outside the `sonar-solutions` org while staying private.
+It's a manual duplication (full history + tags pushed across), not automated — it won't pick up new
+commits on its own.
+
 Covers [MMF-5549](https://sonarsource.atlassian.net/browse/MMF-5549) — *Better SCA search for security personas*
 — scoped to the **dependency inventory** (package name/version, license). Vulnerability/CVE
 search is explicitly out of scope for this plugin; it queries `api/v2/sca/releases` (the SCA
